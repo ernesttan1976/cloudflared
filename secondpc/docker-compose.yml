@@ -1,0 +1,32 @@
+# docker-compose.yml
+version: '3.8'
+services:
+  monitor:
+    image: curlimages/curl:latest
+    container_name: website-monitor
+    restart: unless-stopped
+    environment:
+      - WEBSITE_URL=https://customgpt.techdad.work
+      - TUNNEL_TOKEN=${TUNNEL_TOKEN}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    command: |
+      sh -c "
+        apk add --no-cache docker-cli;
+        echo 'Starting 24/7 monitor for customgpt.techdad.work';
+        while true; do
+          if curl -f -s --max-time 10 https://customgpt.techdad.work > /dev/null 2>&1; then
+            echo \"\$$(date): Website UP\";
+            if docker ps -q -f name=cloudflared-backup | grep -q .; then
+              echo \"\$$(date): Stopping backup tunnel\";
+              docker stop cloudflared-backup && docker rm cloudflared-backup;
+            fi;
+          else
+            echo \"\$$(date): Website DOWN - starting backup tunnel\";
+            if ! docker ps -q -f name=cloudflared-backup | grep -q .; then
+              docker run -d --name cloudflared-backup --privileged --network host -e TUNNEL_TOKEN=\"\$$TUNNEL_TOKEN\" cloudflare/cloudflared:latest tunnel --protocol http2 --no-autoupdate run;
+            fi;
+          fi;
+          sleep 30;
+        done
+      "
