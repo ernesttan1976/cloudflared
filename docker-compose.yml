@@ -8,3 +8,4 @@ services:
     command: tunnel --protocol http2 --no-autoupdate run
     environment:
       - TUNNEL_TOKEN=${TUNNEL_TOKEN}
+    network_mode: host  # This allows cloudflared to route to your local network
